@@ -9,6 +9,9 @@ import knowledge_base
 import agent_tools
 from logger import logger
 from werkzeug.utils import secure_filename
+import db
+import uuid
+from datetime import datetime
 
 # Load environment variables from .env
 load_dotenv()
@@ -68,6 +71,47 @@ def index():
     })
 
 
+@app.route('/chats', methods=['GET'])
+def get_chats():
+    chats = db.get_all_chats()
+    return jsonify(chats)
+
+
+@app.route('/chat/<chat_id>', methods=['GET'])
+def get_chat(chat_id):
+    chat = db.get_chat_history(chat_id)
+    if not chat:
+        return jsonify({'error': 'Chat not found'}), 404
+    return jsonify(chat)
+
+
+@app.route('/new-chat', methods=['POST'])
+def new_chat():
+    chat_id = str(uuid.uuid4())
+    db.create_chat(chat_id)
+    return jsonify({'chat_id': chat_id})
+
+
+@app.route('/message', methods=['POST'])
+def add_message():
+    data = request.json
+    chat_id = data.get('chat_id')
+    role = data.get('role')
+    content = data.get('content')
+    
+    if not chat_id or not role or not content:
+        return jsonify({'error': 'Missing required fields'}), 400
+        
+    msg = db.add_message(chat_id, role, content)
+    return jsonify(msg)
+
+
+@app.route('/chat/delete/<chat_id>', methods=['DELETE'])
+def delete_chat_route(chat_id):
+    db.delete_chat(chat_id)
+    return jsonify({'message': 'Chat deleted'})
+
+
 @app.route('/upload', methods=['POST'])
 def upload_file():
     if 'file' not in request.files:
@@ -103,7 +147,7 @@ def chat():
     data = request.json
     logger.info(f"Chat request received: {data}")
     user_message = data.get('message', '').strip()
-    session_id = data.get('session_id', '').strip()
+    session_id = data.get('chat_id') or data.get('session_id', '').strip()
     user_id = data.get('user_id', '').strip() or session_id
 
     if not user_message:
@@ -116,8 +160,9 @@ def chat():
         if session_id not in chat_sessions:
             chat_sessions[session_id] = []
 
-        # 1. Append the user message to the session history
+        # 1. Append the user message to the session history and MongoDB
         chat_sessions[session_id].append({"role": "user", "content": user_message})
+        db.add_message(session_id, "user", user_message)
 
         # 1b. Extra facts from the user message
         profile = user_memory.get_memory(user_id)
@@ -210,9 +255,10 @@ def chat():
                     else:
                         break
                 
-                # 6. Once finished, update session history and long-term memory
+                # 6. Once finished, update session history, long-term memory, and MongoDB
                 chat_sessions[session_id].append({"role": "assistant", "content": full_response})
                 chat_memory.add_interaction(user_message, full_response, session_id=session_id)
+                db.add_message(session_id, "assistant", full_response)
                 
             except Exception as e:
                 logger.exception(f"Agent loop error: {e}")
