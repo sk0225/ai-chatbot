@@ -11,6 +11,9 @@ Stored fields per user:
 import json
 import os
 import re
+from logger import setup_logger
+
+logger = setup_logger("user_memory")
 
 MEMORY_FILE = "user_memory.json"
 
@@ -80,11 +83,11 @@ def extract_facts(message: str, profile: dict) -> dict:
         if field == "preference":
             if value and value not in profile["preferences"]:
                 profile["preferences"].append(value)
-                print(f"[user_memory] extracted preference: {value}")
+                logger.info(f"Extracted preference: {value}")
         elif field in ("name", "location", "profession"):
             if value:
                 profile[field] = value
-                print(f"[user_memory] extracted {field}: {value}")
+                logger.info(f"Extracted {field}: {value}")
 
     return profile
 

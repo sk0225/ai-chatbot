@@ -1,16 +1,19 @@
 import random
 import re
+from logger import setup_logger
+
+logger = setup_logger("agent_tools")
 
 def get_weather(city: str) -> str:
     """Retrieves the current weather for a specified city. Use this when the user asks about weather."""
-    print(f"[Agent Tool] Calling get_weather for: {city}")
+    logger.info(f"Calling get_weather for: {city}")
     conditions = ["Sunny", "Cloudy", "Rainy", "Partly Cloudy", "Stormy"]
     temp = random.randint(15, 35)
     return f"The weather in {city} is currently {random.choice(conditions)} with a temperature of {temp}°C."
 
 def calculate(expression: str) -> str:
     """Evaluates a mathematical expression. Use this for math problems."""
-    print(f"[Agent Tool] Calling calculate for: {expression}")
+    logger.info(f"Calling calculate for: {expression}")
     try:
         # Basic security check: only allow numbers and math operators
         if re.match(r'^[0-9+\-*/().\s]*$', expression):
@@ -24,7 +27,7 @@ def calculate(expression: str) -> str:
 
 def web_search(query: str) -> str:
     """Performs a web search to find latest information. Use this for news or general knowledge queries."""
-    print(f"[Agent Tool] Calling web_search for: {query}")
+    logger.info(f"Calling web_search for: {query}")
     # Mocking search results
     mock_results = [
         f"Result 1: Latest news on {query} - AI breakthroughs continue to accelerate.",

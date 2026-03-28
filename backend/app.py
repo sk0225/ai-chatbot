@@ -7,6 +7,7 @@ import chat_memory
 import user_memory
 import knowledge_base
 import agent_tools
+from logger import logger
 from werkzeug.utils import secure_filename
 
 # Load environment variables from .env
@@ -43,7 +44,7 @@ if not api_key:
     raise ValueError("GEMINI_API_KEY or GOOGLE_API_KEY environment variable not set in .env")
 
 # Basic diagnostic (will only show first/last characters for security)
-print(f"DEBUG: Loaded API Key starting with: {api_key[:5]}... and ending with: ...{api_key[-4:]}")
+logger.info(f"Loaded API Key starting with: {api_key[:5]}... and ending with: ...{api_key[-4:]}")
 
 client = genai.Client(api_key=api_key)
 
@@ -100,6 +101,7 @@ def upload_file():
 @app.route('/chat', methods=['POST'])
 def chat():
     data = request.json
+    logger.info(f"Chat request received: {data}")
     user_message = data.get('message', '').strip()
     session_id = data.get('session_id', '').strip()
     user_id = data.get('user_id', '').strip() or session_id
@@ -213,16 +215,14 @@ def chat():
                 chat_memory.add_interaction(user_message, full_response, session_id=session_id)
                 
             except Exception as e:
-                import traceback
-                traceback.print_exc()
-                print(f"Agent loop error: {e}")
+                logger.exception(f"Agent loop error: {e}")
                 error_msg = str(e)
                 yield f"data: [ERROR]: {error_msg}\n\n"
 
         return Response(generate(), mimetype='text/event-stream')
 
     except Exception as e:
-        print(f"Error in /chat initialization: {e}")
+        logger.error(f"Error in /chat initialization: {e}")
         return jsonify({'error': str(e)}), 500
 
 

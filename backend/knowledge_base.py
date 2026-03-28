@@ -4,6 +4,9 @@ import chromadb
 from chromadb.utils import embedding_functions
 from PyPDF2 import PdfReader
 from docx import Document
+from logger import setup_logger
+
+logger = setup_logger("knowledge_base")
 
 # Initialize ChromaDB client and collection for Knowledge Base
 client = chromadb.PersistentClient(path="./chroma_db")
@@ -23,7 +26,7 @@ def extract_text_from_pdf(filepath):
         for page in reader.pages:
             text += page.extract_text() or ""
     except Exception as e:
-        print(f"Error extracting PDF: {e}")
+        logger.error(f"Error extracting PDF: {e}")
     return text
 
 def extract_text_from_docx(filepath):
@@ -33,7 +36,7 @@ def extract_text_from_docx(filepath):
         for para in doc.paragraphs:
             text += para.text + "\n"
     except Exception as e:
-        print(f"Error extracting DOCX: {e}")
+        logger.error(f"Error extracting DOCX: {e}")
     return text
 
 def extract_text_from_txt(filepath):
@@ -41,7 +44,7 @@ def extract_text_from_txt(filepath):
         with open(filepath, 'r', encoding='utf-8') as f:
             return f.read()
     except Exception as e:
-        print(f"Error extracting TXT: {e}")
+        logger.error(f"Error extracting TXT: {e}")
         return ""
 
 def chunk_text(text, chunk_size=500, overlap=50):
@@ -65,11 +68,11 @@ def process_file_and_store(filepath, filename, session_id="", user_id=""):
     elif ext == 'txt':
         text = extract_text_from_txt(filepath)
     else:
-        print(f"Unsupported file type: {ext}")
+        logger.warning(f"Unsupported file type attempt: {ext} for {filename}")
         return False
 
     if not text.strip():
-        print(f"No text extracted from {filename}")
+        logger.warning(f"No text extracted from {filename}")
         return False
 
     chunks = chunk_text(text)
@@ -87,10 +90,10 @@ def process_file_and_store(filepath, filename, session_id="", user_id=""):
             metadatas=metadatas,
             ids=ids
         )
-        print(f"Successfully added {len(chunks)} chunks from {filename} to Knowledge Base (session: {session_id}).")
+        logger.info(f"Successfully added {len(chunks)} chunks from {filename} to Knowledge Base (session: {session_id}).")
         return True
     except Exception as e:
-        print(f"Error adding to Knowledge Base: {e}")
+        logger.error(f"Error adding to Knowledge Base: {e}")
         return False
 
 def query_knowledge_base(query, k=5):
@@ -107,6 +110,6 @@ def query_knowledge_base(query, k=5):
         if results['documents']:
             return results['documents'][0]
     except Exception as e:
-        print(f"Error querying Knowledge Base: {e}")
+        logger.error(f"Error querying Knowledge Base: {e}")
     
     return []

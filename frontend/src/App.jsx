@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { Paperclip, Send, User, PlusCircle, Sparkles, Zap, Cpu } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { motion, AnimatePresence } from 'framer-motion';
+import logger from './utils/logger';
 
 const Message = ({ msg, isLast, loading }) => {
   const isBot = msg.sender === 'bot';
@@ -62,6 +63,10 @@ function App() {
     return id;
   }, []);
 
+  useEffect(() => {
+    logger.info('App mounted', { userId, sessionId: sessionIdRef.current });
+  }, [userId]);
+
   const startNewChat = useCallback(() => {
     sessionIdRef.current = crypto.randomUUID();
     setMessages([]);
@@ -85,6 +90,7 @@ function App() {
     formData.append('session_id', sessionIdRef.current);
     formData.append('user_id', userId);
 
+    logger.info('Starting file upload', { fileName: file.name, fileSize: file.size });
     setLoading(true);
     setMessages((prev) => [...prev, { sender: 'user', text: `📎 Uploading: **${file.name}**...` }]);
 
@@ -96,11 +102,14 @@ function App() {
 
       const data = await response.json();
       if (response.ok) {
+        logger.info('File upload successful', { fileName: file.name });
         setMessages((prev) => [...prev, { sender: 'bot', text: `✅ **${file.name}** processed successfully. I've integrated its data into my vector-memory. You can now query this information.` }]);
       } else {
+        logger.error('File upload failed', { fileName: file.name, error: data.error });
         setMessages((prev) => [...prev, { sender: 'bot', text: `❌ Upload failed: ${data.error || 'Unknown error'}` }]);
       }
     } catch (error) {
+      logger.error('File upload connection error', { fileName: file.name, message: error.message });
       setMessages((prev) => [...prev, { sender: 'bot', text: '❌ Connection error: ' + error.message }]);
     } finally {
       setLoading(false);
@@ -113,6 +122,7 @@ function App() {
     if (!input.trim() || loading) return;
 
     const userMsg = input.trim();
+    logger.info('Sending chat message', { messageLength: userMsg.length });
     setMessages((prev) => [...prev, { sender: 'user', text: userMsg }]);
     setInput('');
     setLoading(true);
@@ -131,7 +141,10 @@ function App() {
         }),
       });
 
-      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+      if (!response.ok) {
+        logger.error(`Chat HTTP error: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -146,7 +159,9 @@ function App() {
           if (line.startsWith('data: ')) {
             const token = line.substring(6);
             if (token.startsWith('[ERROR]:')) {
-              accumulated = `Error: ${token.replace('[ERROR]:', '')}`;
+              const errMsg = token.replace('[ERROR]:', '');
+              logger.error('Chat stream token error', { message: errMsg });
+              accumulated = `Error: ${errMsg}`;
             } else {
               accumulated += token;
             }
@@ -165,6 +180,7 @@ function App() {
         }
       }
     } catch (error) {
+      logger.error('Critical chat error', { message: error.message });
       setMessages((prev) => [...prev, { sender: 'bot', text: 'Critical connection loss: ' + error.message }]);
     } finally {
       setLoading(false);

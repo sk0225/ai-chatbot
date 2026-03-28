@@ -1,6 +1,9 @@
 import chromadb
 from chromadb.utils import embedding_functions
 import uuid
+from logger import setup_logger
+
+logger = setup_logger("chat_memory")
 
 # Initialize ChromaDB client.
 # This will create a persistent database in the './chroma_db' directory.
@@ -38,9 +41,9 @@ def add_interaction(user_message: str, assistant_response: str, session_id: str 
             metadatas=[metadata],
             ids=[interaction_id]
         )
-        print(f"Added interaction to memory: {interaction_id} (session: {session_id or 'N/A'})")
+        logger.info(f"Added interaction to memory: {interaction_id} (session: {session_id or 'anonymous'})")
     except Exception as e:
-        print(f"Error adding interaction to memory: {e}")
+        logger.error(f"Error adding interaction to memory: {e}")
 
 def get_relevant_context(query: str, k: int = 3) -> list:
     """
